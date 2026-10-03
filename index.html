@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>روبو يتعلم 🤖</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #dff7ff;
+            text-align: center;
+            direction: rtl;
+        }
+
+        .screen {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        h1 {
+            font-size: 45px;
+            color: #333;
+        }
+
+        .robot {
+            font-size: 150px;
+            margin: 20px;
+        }
+
+        .speech {
+            background: white;
+            padding: 20px 35px;
+            border-radius: 25px;
+            font-size: 28px;
+            margin: 20px;
+        }
+
+        button {
+            border: none;
+            background: #62d4a7;
+            padding: 20px 40px;
+            border-radius: 25px;
+            font-size: 25px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="screen">
+
+        <h1>🤖 روبو يتعلّم!</h1>
+
+        <div class="robot">
+            🤖
+        </div>
+
+        <div class="speech" id="speech">
+            هلاااا يا أصدقاء! 👋
+        </div>
+
+        <button onclick="startRobot()">
+            ابدأ المغامرة 🚀
+        </button>
+
+    </div>
+
+    <script>
+        function startRobot() {
+
+            document.getElementById("speech").innerText =
+                "أوووه! مستعدين؟ 👀🤖";
+
+            const voice = new SpeechSynthesisUtterance(
+                "أوووه! مستعدين؟"
+            );
+
+            voice.lang = "ar-SA";
+            voice.rate = 0.9;
+
+            speechSynthesis.speak(voice);
+        }
+    </script>
+
+</body>
+</html>
