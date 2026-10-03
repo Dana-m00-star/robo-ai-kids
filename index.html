@@ -6,136 +6,509 @@
 
     <title>روبو يتعلم 🤖</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
     <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #dff7ff;
-            text-align: center;
             direction: rtl;
+            background: linear-gradient(135deg, #dff7ff, #e9ddff);
+            text-align: center;
         }
 
         .screen {
             min-height: 100vh;
-            padding: 30px 20px;
+            padding: 25px;
         }
 
         h1 {
             font-size: 42px;
             color: #333;
+            margin: 10px;
         }
 
         .robot {
-            font-size: 120px;
-            margin: 10px;
+            font-size: 110px;
+            margin: 5px;
+            animation: float 2s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
 
         .speech {
             background: white;
             display: inline-block;
             padding: 18px 30px;
-            border-radius: 25px;
-            font-size: 26px;
+            border-radius: 30px;
+            font-size: 28px;
             margin: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         button {
             border: none;
             background: #62d4a7;
+            color: #123;
             padding: 18px 35px;
             border-radius: 25px;
             font-size: 24px;
             cursor: pointer;
+            font-weight: bold;
         }
 
         button:hover {
             transform: scale(1.05);
         }
 
+        button:disabled {
+            opacity: 0.6;
+        }
+
         #camera {
             display: none;
-            width: 80%;
-            max-width: 700px;
+            width: 90%;
+            max-width: 750px;
             margin: 25px auto;
             border-radius: 30px;
-            border: 6px solid white;
+            border: 7px solid white;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
         }
+
+        #result {
+            font-size: 30px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .loading {
+            font-size: 22px;
+            margin: 10px;
+        }
+
     </style>
 </head>
 
 <body>
 
-    <div class="screen">
+<div class="screen">
 
-        <h1>🤖 روبو يتعلّم!</h1>
+    <h1>🤖 روبو يتعلّم!</h1>
 
-        <div class="robot">
-            🤖
-        </div>
-
-        <div class="speech" id="speech">
-            هلاااا يا أصدقاء! 👋
-        </div>
-
-        <br>
-
-        <button onclick="startRobot()">
-            👀 شغّلوا عيوني!
-        </button>
-
-        <video id="camera" autoplay playsinline></video>
-
+    <div class="robot">
+        🤖
     </div>
 
-    <script>
+    <div class="speech" id="speech">
+        هلاااا يا أصدقاء! 👋
+    </div>
 
-        async function startRobot() {
+    <br>
 
-            const speech = document.getElementById("speech");
-            const camera = document.getElementById("camera");
+    <button id="startButton" onclick="startRobot()">
+        👀 شغّلوا عيوني!
+    </button>
 
-            speech.innerText = "أوووه! مستعدين؟ 👀🤖";
+    <div class="loading" id="loading"></div>
 
-            const voice = new SpeechSynthesisUtterance(
-                "أوووه! مستعدين؟"
-            );
+    <video id="camera" autoplay playsinline></video>
 
-            voice.lang = "ar-SA";
-            voice.rate = 0.9;
+    <div id="result"></div>
 
-            speechSynthesis.speak(voice);
+</div>
 
-            try {
 
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: false
-                });
+<script>
 
-                camera.srcObject = stream;
-                camera.style.display = "block";
+let model = null;
+let lastObject = "";
+let lastSpokenTime = 0;
 
-                speech.innerText = "واااو! شغلت عيوني! 👀";
 
-                const voice2 = new SpeechSynthesisUtterance(
-                    "واااو! شغلت عيوني!"
-                );
+// ==============================
+// تشغيل الروبوت
+// ==============================
 
-                voice2.lang = "ar-SA";
-                voice2.rate = 0.9;
+async function startRobot() {
 
-                speechSynthesis.speak(voice2);
+    const speech = document.getElementById("speech");
+    const camera = document.getElementById("camera");
+    const loading = document.getElementById("loading");
+    const button = document.getElementById("startButton");
 
-            } catch (error) {
+    speechSynthesis.cancel();
 
-                speech.innerText =
-                    "أوه! ما قدرت أشغل الكاميرا 😢";
+    button.disabled = true;
 
-                console.log(error);
+    speech.innerText = "لحظة... أشغل عيوني 👀";
+    speak("لحظة... أشغل عيوني");
+
+    try {
+
+        // تشغيل الكاميرا
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+        });
+
+        camera.srcObject = stream;
+        camera.style.display = "block";
+
+        // تحميل الذكاء الاصطناعي
+
+        loading.innerText = "🧠 روبو يتعلم كيف يشوف...";
+
+        model = await cocoSsd.load();
+
+        loading.innerText = "";
+
+        speech.innerText =
+            "أنا جاهز! ارفعوا لي صورة! 🤖";
+
+        speak("أنا جاهز! ارفعوا لي صورة");
+
+        // بدء التعرف
+
+        detectObjects();
+
+    }
+
+    catch (error) {
+
+        console.log(error);
+
+        speech.innerText =
+            "أوه! ما قدرت أشغل عيوني 😢";
+
+        speak("أوه! ما قدرت أشغل عيوني");
+
+        button.disabled = false;
+    }
+}
+
+
+// ==============================
+// صوت الروبوت
+// ==============================
+
+function speak(text) {
+
+    speechSynthesis.cancel();
+
+    const voice =
+        new SpeechSynthesisUtterance(text);
+
+    voice.lang = "ar-SA";
+
+    voice.rate = 0.8;
+
+    voice.pitch = 1.1;
+
+    speechSynthesis.speak(voice);
+}
+
+
+// ==============================
+// الذكاء الاصطناعي يشوف الصورة
+// ==============================
+
+async function detectObjects() {
+
+    if (!model) return;
+
+    const camera =
+        document.getElementById("camera");
+
+    const predictions =
+        await model.detect(camera);
+
+
+    if (predictions.length > 0) {
+
+        // نأخذ أعلى نتيجة
+
+        const object = predictions[0];
+
+        const confidence =
+            object.score;
+
+
+        console.log(
+            "AI شاف:",
+            object.class,
+            "الثقة:",
+            confidence
+        );
+
+
+        // لازم يكون متأكد بنسبة 65%
+
+        if (confidence > 0.65) {
+
+            const objectInfo =
+                getObjectInfo(object.class);
+
+
+            document.getElementById("result").innerText =
+                "👀 " +
+                objectInfo.arabic +
+                " — " +
+                objectInfo.english;
+
+
+            const now =
+                Date.now();
+
+
+            // منع التكرار
+
+            if (
+                object.class !== lastObject ||
+                now - lastSpokenTime > 5000
+            ) {
+
+                lastObject =
+                    object.class;
+
+                lastSpokenTime =
+                    now;
+
+
+                const sentence =
+                    makeSentence(object.class);
+
+
+                document.getElementById("speech").innerText =
+                    sentence;
+
+
+                speak(sentence);
             }
+
         }
 
-    </script>
+    }
+
+
+    requestAnimationFrame(detectObjects);
+}
+
+
+// ==============================
+// أسماء الأشياء بالعربي والإنجليزي
+// ==============================
+
+function getObjectInfo(object) {
+
+    const names = {
+
+        apple: {
+            arabic: "تفاحة 🍎",
+            english: "Apple"
+        },
+
+        banana: {
+            arabic: "موزة 🍌",
+            english: "Banana"
+        },
+
+        book: {
+            arabic: "كتاب 📕",
+            english: "Book"
+        },
+
+        bottle: {
+            arabic: "قارورة 🍼",
+            english: "Bottle"
+        },
+
+        cup: {
+            arabic: "كوب 🥤",
+            english: "Cup"
+        },
+
+        backpack: {
+            arabic: "شنطة 🎒",
+            english: "Backpack"
+        },
+
+        chair: {
+            arabic: "كرسي 🪑",
+            english: "Chair"
+        },
+
+        laptop: {
+            arabic: "لابتوب 💻",
+            english: "Laptop"
+        },
+
+        cell_phone: {
+            arabic: "جوال 📱",
+            english: "Cell phone"
+        },
+
+        teddy_bear: {
+            arabic: "دبدوب 🧸",
+            english: "Teddy bear"
+        },
+
+        cat: {
+            arabic: "قطة 🐱",
+            english: "Cat"
+        },
+
+        dog: {
+            arabic: "كلب 🐶",
+            english: "Dog"
+        },
+
+        bicycle: {
+            arabic: "دراجة 🚲",
+            english: "Bicycle"
+        },
+
+        car: {
+            arabic: "سيارة 🚗",
+            english: "Car"
+        },
+
+        bus: {
+            arabic: "باص 🚌",
+            english: "Bus"
+        },
+
+        bird: {
+            arabic: "طائر 🐦",
+            english: "Bird"
+        },
+
+        horse: {
+            arabic: "حصان 🐴",
+            english: "Horse"
+        },
+
+        sheep: {
+            arabic: "خروف 🐑",
+            english: "Sheep"
+        },
+
+        cow: {
+            arabic: "بقرة 🐮",
+            english: "Cow"
+        },
+
+        elephant: {
+            arabic: "فيل 🐘",
+            english: "Elephant"
+        },
+
+        giraffe: {
+            arabic: "زرافة 🦒",
+            english: "Giraffe"
+        }
+
+    };
+
+    return names[object] || {
+        arabic: object,
+        english: object
+    };
+}
+
+
+// ==============================
+// جملة الروبوت
+// ==============================
+
+function makeSentence(object) {
+
+    const sentences = {
+
+        apple:
+        "هذه تفاحة! Apple! 🍎",
+
+        banana:
+        "هذه موزة! Banana! 🍌",
+
+        book:
+        "هذا كتاب! Book! 📕",
+
+        bottle:
+        "هذه قارورة! Bottle! 🍼",
+
+        cup:
+        "هذا كوب! Cup! 🥤",
+
+        backpack:
+        "هذه شنطة! Backpack! 🎒",
+
+        chair:
+        "هذا كرسي! Chair! 🪑",
+
+        laptop:
+        "هذا لابتوب! Laptop! 💻",
+
+        cell_phone:
+        "هذا جوال! Cell phone! 📱",
+
+        teddy_bear:
+        "هذا دبدوب! Teddy bear! 🧸",
+
+        cat:
+        "هذه قطة! Cat! مياووو! 🐱",
+
+        dog:
+        "هذا كلب! Dog! هوهو! 🐶",
+
+        bicycle:
+        "هذه دراجة! Bicycle! 🚲",
+
+        car:
+        "هذه سيارة! Car! 🚗",
+
+        bus:
+        "هذا باص! Bus! 🚌",
+
+        bird:
+        "هذا طائر! Bird! 🐦",
+
+        horse:
+        "هذا حصان! Horse! 🐴",
+
+        sheep:
+        "هذا خروف! Sheep! 🐑",
+
+        cow:
+        "هذه بقرة! Cow! 🐮",
+
+        elephant:
+        "هذا فيل! Elephant! 🐘",
+
+        giraffe:
+        "هذه زرافة! Giraffe! 🦒"
+
+    };
+
+    return sentences[object] ||
+        "هممم... خلوني أشوف مرة ثانية! 🤔";
+}
+
+</script>
 
 </body>
 </html>
